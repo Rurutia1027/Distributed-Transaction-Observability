@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: reliable-message-service
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+
+      - name: Install persistence-common (external dependency)
+        run: |
+          git clone --depth 1 https://github.com/Rurutia1027/HQL-Native-Persistence.git /tmp/HQL-Native-Persistence
+          mvn -B -ntp -DskipTests -f /tmp/HQL-Native-Persistence/persistence-common/pom.xml install
+
+      - name: Build (includes proto codegen)
+        run: mvn -B -ntp clean verify
+
