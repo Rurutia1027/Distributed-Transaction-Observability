@@ -31,7 +31,7 @@ jobs:
       - name: Install persistence-common (external dependency)
         run: |
           git clone --depth 1 https://github.com/Rurutia1027/HQL-Native-Persistence.git /tmp/HQL-Native-Persistence
-          mvn -B -ntp -DskipTests -f /tmp/HQL-Native-Persistence/pom.xml -pl persistence-common -am install
+          mvn -B -ntp -DskipTests -f /tmp/HQL-Native-Persistence/persistence-common/pom.xml install
 
       - name: Build (includes proto codegen)
         run: mvn -B -ntp clean verify
