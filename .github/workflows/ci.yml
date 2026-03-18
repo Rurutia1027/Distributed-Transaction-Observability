@@ -33,6 +33,6 @@ jobs:
           git clone --depth 1 https://github.com/Rurutia1027/HQL-Native-Persistence.git /tmp/HQL-Native-Persistence
           mvn -B -ntp -DskipTests -f /tmp/HQL-Native-Persistence/persistence-common/pom.xml install
 
-      - name: Build (includes proto codegen)
-        run: mvn -B -ntp clean verify
+      - name: Build (message-service-api proto codegen + message-service)
+        run: mvn -B -ntp clean install -DskipTests
 

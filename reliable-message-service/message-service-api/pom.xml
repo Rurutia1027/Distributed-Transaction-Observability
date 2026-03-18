@@ -9,11 +9,11 @@
     </parent>
 
     <groupId>org.tus.tx.message</groupId>
-    <artifactId>message-service-contract</artifactId>
+    <artifactId>message-service-api</artifactId>
     <version>${project.parent.version}</version>
     <packaging>jar</packaging>
 
-    <name>message-service-contract</name>
+    <name>message-service-api</name>
     <description>gRPC contract + generated SDK for message-service</description>
 
     <dependencies>
@@ -34,7 +34,7 @@
             <groupId>io.grpc</groupId>
             <artifactId>grpc-protobuf</artifactId>
         </dependency>
-        <!-- Java 9+ no longer ships javax.annotation (needed by generated gRPC code) -->
+        <!-- Java 9+ no longer ships javax.annotation (needed by some generated code) -->
         <dependency>
             <groupId>javax.annotation</groupId>
             <artifactId>javax.annotation-api</artifactId>
@@ -71,7 +71,6 @@
                     <pluginId>grpc-java</pluginId>
                     <pluginArtifact>io.grpc:protoc-gen-grpc-java:${grpc.version}:exe:${os.detected.classifier}</pluginArtifact>
                     <protoSourceRoot>${project.basedir}/src/main/proto</protoSourceRoot>
-                    <!-- Prevent incremental builds from deleting sources mid-compilation -->
                     <clearOutputDirectory>false</clearOutputDirectory>
                 </configuration>
                 <executions>

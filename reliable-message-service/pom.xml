@@ -17,7 +17,7 @@
     <name>reliable-message-service</name>
 
     <modules>
-        <module>message-service-contract</module>
+        <module>message-service-api</module>
         <module>message-service</module>
     </modules>
 
@@ -33,7 +33,7 @@
         <dependencies>
             <dependency>
                 <groupId>org.tus.tx.message</groupId>
-                <artifactId>message-service-contract</artifactId>
+                <artifactId>message-service-api</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
@@ -49,11 +49,6 @@
             <dependency>
                 <groupId>io.grpc</groupId>
                 <artifactId>grpc-stub</artifactId>
-                <version>${grpc.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>io.grpc</groupId>
-                <artifactId>grpc-services</artifactId>
                 <version>${grpc.version}</version>
             </dependency>
             <dependency>
