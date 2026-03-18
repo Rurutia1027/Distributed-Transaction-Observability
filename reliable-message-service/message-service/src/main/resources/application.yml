@@ -1,11 +1,6 @@
-grpc:
-  server:
-    port: 9090
-
 spring:
   application:
     name: message-service
-
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://localhost:3306/reliable_message?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
@@ -19,9 +14,21 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
 
+server:
+  port: 8080
+
+grpc:
+  server:
+    port: 9090
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
 # MQ publisher switch:
 # - rocketmq: use RocketMQ publisher (placeholder implementation, wires config)
-# - jms: use JMS publisher (JmsTemplate)
 mq:
   publisher: rocketmq
 
@@ -30,10 +37,4 @@ mq:
     producer-group: reliable-message-producer
     send-timeout-ms: 3000
     retry-times: 2
-
-  jms:
-    broker-url: tcp://127.0.0.1:61616
-    username: admin
-    password: admin
-    pub-sub-domain: false
 

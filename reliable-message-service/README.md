@@ -5,21 +5,24 @@ This project is a refactored, standalone version of the original `roncoo-pay` me
 
 ## Modules
 
-- **message-service-contract**: gRPC contract (proto) + generated SDK (DTOs + stubs) used by both client and server.
-- **message-service**: Implementation of the reliable message service, including:
-    - Persistence of transactional message to the `transaction_message` table
-    - Tracking
-    - Tracking send attempts, dead-letter status, and message state
-    - Integration with MQ (e.g., RocketMQ/JMS) and gRPC for RPC
+- **message-service-api**: gRPC contract (proto) + generated Java stubs for server and client. Callers use this module to talk to the service via gRPC (publish, confirm, list).
+- **message-service**: Spring Boot application that implements the reliable message service:
+    - **gRPC server** (default port 9090): main API for producers (Publish, ConfirmSend, ListPage).
+    - **REST + Swagger** (port 8080): optional admin/query endpoints.
+    - Persistence to `transaction_message` (outbox), state machine (WAITING_CONFIRM → SENDING → SENT/DEAD).
+    - **Quartz** relay job to send outbox messages to **RocketMQ**.
 
 ## Purpose
 
 The service implements a **reliable messaging** pattern to achieve **eventual consistency** across microservices:
 
-- Message are first **persisted to the database** with status and send-attempt counters.
+- Messages are first **persisted to the database** (outbox) with status and send-attempt counters.
 - A background process **retries sending** messages until success or until they are marked as dead.
-- Downstream service consume messages from MQ, ensuring that business actions are eventually applied even when remote
-  systems are temporarily unavailable.
+- Downstream services consume messages from RocketMQ, ensuring that business actions are eventually applied even when remote systems are temporarily unavailable.
+
+## Docs
+
+- `docs/observability-otel-tracing-logging.md`: End-to-end OpenTelemetry tracing + logging design (EN + 中文).
 
 ### Observability (OpenTelemetry)
 
@@ -40,54 +43,49 @@ Recommended pipeline:
 
 ### Deployment design
 
-This module is intended to run as a Spring Boot microservice with external dependencies:
+The service runs as a standalone Spring Boot app with external dependencies:
 
-- **MySQL**: persistent store for `transaction_message`
-- **RocketMQ**: message broker for publish/consume
-- **Consul**: service discovery
-- **OpenTelemetry Collector**: telemetry pipeline
+- **MySQL**: persistent store for `transaction_message` (outbox).
+- **RocketMQ**: message broker; relay job publishes to it.
+- **OpenTelemetry Collector** (optional): for tracing/logging; see `docs/observability-otel-tracing-logging.md`.
 
 #### Docker Compose (local dev)
 
-The repo includes `docker-compose.yml` for local dev infrastructure:
+The repo includes `docker-compose.yml` for local dev infrastructure only (no app container; run the Spring Boot app on the host):
 
-- `mysql` (volume)
-- `artemis` (JMS broker; volume)
-- optional `rocketmq-namesrv` + `rocketmq-broker` (volume) via compose profile
+| Service            | Image                 | Ports              | Notes |
+|--------------------|-----------------------|--------------------|--------|
+| `mysql`            | mysql:8.4             | 3306               | DB `reliable_message`, user `rms`/`rms` |
+| `rocketmq-namesrv` | apache/rocketmq:5.3.0 | 9876               | `platform: linux/amd64` for arm64 hosts (e.g. M1/M2) |
+| `rocketmq-broker`  | apache/rocketmq:5.3.0 | 10911, 10909       | Depends on namesrv; `autoCreateTopicEnable=true` |
 
 Run:
 
 ```bash
+cd reliable-message-service
 docker compose up -d
 ```
 
-Enable RocketMQ:
+Then start the app (e.g. from IDE or `mvn spring-boot:run -pl message-service`). The app connects to:
 
-```bash
-docker compose --profile rocketmq up -d
-```
+- MySQL at `localhost:3306`
+- RocketMQ at `127.0.0.1:9876` (see `application.yml`: `mq.rocketmq.name-server`)
 
-Ports:
-
-- MySQL: `3306`
-- Artemis JMS: `61616`, console: `8161`
-- RocketMQ namesrv: `9876`, broker: `10911`
+App ports: **HTTP 8080** (REST/Swagger), **gRPC 9090**.
 
 #### Kubernetes (production-like)
 
-Recommended Kubernetes layout:
+Recommended layout:
 
-- **Stateful dependencies** (usually managed services in real prod):
-    - MySQL (or RDS) + migration/bootstrap for `transaction_message`
+- **Stateful dependencies** (managed services or Helm):
+    - MySQL (or RDS/TiDB) + schema for `transaction_message`
     - RocketMQ cluster (or managed MQ)
-    - Consul (or replace with Kubernetes-native discovery if you later decide)
-- **Observability**:
-    - OpenTelemetry Collector as a Deployment (or DaemonSet) + ConfigMap
+- **Observability** (optional): OpenTelemetry Collector (Deployment or DaemonSet) + ConfigMap.
 - **Application**:
-    - `message-service` Deployment
-    - Service (ClusterIP) exposing gRPC
-    - Config via ConfigMap + Secret
-    - HPA scaling on CPU + business metrics (optional)
+    - `message-service` Deployment (single Spring Boot JAR).
+    - Service (ClusterIP) exposing **gRPC 9090** and **HTTP 8080** (REST/Swagger).
+    - Config via ConfigMap + Secret (DB URL, MQ name-server, etc.).
+    - HPA on CPU or custom metrics (optional).
 
 Operational considerations:
 
