@@ -1,0 +1,97 @@
+syntax = "proto3";
+
+package tus.tx.message;
+
+option java_package = "org.tus.tx.service.message.grpc";
+option java_multiple_files = true;
+
+// Domain message for transaction reliable messaging
+message TransactionMessageProto {
+  string message_id = 1;
+  string message_body = 2;
+  string message_data_type = 3;
+  string consumer_queue = 4;
+  int32 message_send_times = 5;
+  string already_dead = 6;
+  string field1 = 7;
+  string field2 = 8;
+  string field3 = 9;
+  string id = 10;
+  int64 created_date = 11;
+}
+
+message SaveMessageWaitingConfirmRequest {
+  TransactionMessageProto message = 1;
+}
+message SaveMessageWaitingConfirmResponse {
+  int32 result = 1;
+}
+
+message ConfirmAndSendRequest {
+  string message_id = 1;
+}
+message ConfirmAndSendResponse {}
+
+message SaveAndSendRequest {
+  TransactionMessageProto message = 1;
+}
+message SaveAndSendResponse {
+  int32 result = 1;
+}
+
+message DirectSendRequest {
+  TransactionMessageProto message = 1;
+}
+message DirectSendResponse {}
+
+message ReSendMessageRequest {
+  TransactionMessageProto message = 1;
+}
+message ReSendMessageResponse {}
+
+message ReSendByMessageIdRequest {
+  string message_id = 1;
+}
+message ReSendByMessageIdResponse {}
+
+message SetMessageToAlreadyDeadRequest {
+  string message_id = 1;
+}
+message SetMessageToAlreadyDeadResponse {}
+
+message DeleteMessageRequest {
+  string message_id = 1;
+}
+message DeleteMessageResponse {}
+
+message ReSendAllDeadRequest {
+  string queue_name = 1;
+  int32 batch_size = 2;
+}
+message ReSendAllDeadResponse {}
+
+message ListPageRequest {
+  int32 start = 1;
+  int32 page_size = 2;
+  string sort_by = 3;
+  bool asc = 4;
+}
+message ListPageResponse {
+  int32 start = 1;
+  int32 page_size = 2;
+  int32 total = 3;
+  repeated TransactionMessageProto elements = 4;
+}
+
+service TransactionMessageService {
+  rpc SaveMessageWaitingConfirm(SaveMessageWaitingConfirmRequest) returns (SaveMessageWaitingConfirmResponse);
+  rpc ConfirmAndSendMessage(ConfirmAndSendRequest) returns (ConfirmAndSendResponse);
+  rpc SaveAndSendMessage(SaveAndSendRequest) returns (SaveAndSendResponse);
+  rpc DirectSendMessage(DirectSendRequest) returns (DirectSendResponse);
+  rpc ReSendMessage(ReSendMessageRequest) returns (ReSendMessageResponse);
+  rpc ReSendMessageByMessageId(ReSendByMessageIdRequest) returns (ReSendByMessageIdResponse);
+  rpc SetMessageToAlreadyDead(SetMessageToAlreadyDeadRequest) returns (SetMessageToAlreadyDeadResponse);
+  rpc DeleteMessageByMessageId(DeleteMessageRequest) returns (DeleteMessageResponse);
+  rpc ReSendAllDeadMessageByQueueName(ReSendAllDeadRequest) returns (ReSendAllDeadResponse);
+  rpc ListPage(ListPageRequest) returns (ListPageResponse);
+}

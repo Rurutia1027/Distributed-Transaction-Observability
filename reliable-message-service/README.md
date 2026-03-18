@@ -5,14 +5,12 @@ This project is a refactored, standalone version of the original `roncoo-pay` me
 
 ## Modules
 
-- **common-core**: Shared core utilities, base entities, exceptions, and common infrastructure used by all modules.
-- **common-config**: Shared configuration (Spring Boot, MQ, Hibernate, etc.) used by the message service.
-- **message-service-api**: Public API for the reliable message service (entities, enums, and service interfaces).
+- **message-service-contract**: gRPC contract (proto) + generated SDK (DTOs + stubs) used by both client and server.
 - **message-service**: Implementation of the reliable message service, including:
-    - Persistence of transactional message to the `rp_transaction_message` table
+    - Persistence of transactional message to the `transaction_message` table
     - Tracking
     - Tracking send attempts, dead-letter status, and message state
-    - Integration with MQ (e.g., RocketMQ), Consul for service discovery, and gRPC for RPC
+    - Integration with MQ (e.g., RocketMQ/JMS) and gRPC for RPC
 
 ## Purpose
 
@@ -44,7 +42,7 @@ Recommended pipeline:
 
 This module is intended to run as a Spring Boot microservice with external dependencies:
 
-- **MySQL**: persistent store for `rp_transaction_message`
+- **MySQL**: persistent store for `transaction_message`
 - **RocketMQ**: message broker for publish/consume
 - **Consul**: service discovery
 - **OpenTelemetry Collector**: telemetry pipeline
@@ -68,7 +66,7 @@ The recommended `docker-compose` topology:
 Recommended Kubernetes layout:
 
 - **Stateful dependencies** (usually managed services in real prod):
-    - MySQL (or RDS) + migration/bootstrap for `rp_transaction_message`
+    - MySQL (or RDS) + migration/bootstrap for `transaction_message`
     - RocketMQ cluster (or managed MQ)
     - Consul (or replace with Kubernetes-native discovery if you later decide)
 - **Observability**:

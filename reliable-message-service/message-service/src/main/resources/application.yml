@@ -1,0 +1,22 @@
+grpc:
+  server:
+    port: 9090
+
+# MQ publisher switch:
+# - rocketmq: use RocketMQ publisher (placeholder implementation, wires config)
+# - jms: use JMS publisher (JmsTemplate)
+mq:
+  publisher: rocketmq
+
+  rocketmq:
+    name-server: 127.0.0.1:9876
+    producer-group: reliable-message-producer
+    send-timeout-ms: 3000
+    retry-times: 2
+
+  jms:
+    broker-url: tcp://127.0.0.1:61616
+    username: admin
+    password: admin
+    pub-sub-domain: false
+
