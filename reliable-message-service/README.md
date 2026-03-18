@@ -49,17 +49,29 @@ This module is intended to run as a Spring Boot microservice with external depen
 
 #### Docker Compose (local dev)
 
-The recommended `docker-compose` topology:
+The repo includes `docker-compose.yml` for local dev infrastructure:
 
-- `mysql` (with a volume)
-- `rocketmq-namesrv`, `rocketmq-broker` (with a volume)
-- `consul`
-- `otel-collector`
-- `message-service` (built image) configured with:
-    - `SPRING_DATASOURCE_*` for MySQL
-    - RocketMQ client config
-    - Consul discovery config
-    - `OTEL_EXPORTER_OTLP_ENDPOINT` pointing to `otel-collector`
+- `mysql` (volume)
+- `artemis` (JMS broker; volume)
+- optional `rocketmq-namesrv` + `rocketmq-broker` (volume) via compose profile
+
+Run:
+
+```bash
+docker compose up -d
+```
+
+Enable RocketMQ:
+
+```bash
+docker compose --profile rocketmq up -d
+```
+
+Ports:
+
+- MySQL: `3306`
+- Artemis JMS: `61616`, console: `8161`
+- RocketMQ namesrv: `9876`, broker: `10911`
 
 #### Kubernetes (production-like)
 

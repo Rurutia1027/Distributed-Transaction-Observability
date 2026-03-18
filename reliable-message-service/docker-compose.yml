@@ -1,0 +1,84 @@
+name: reliable-message-service
+
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: rms-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: reliable_message
+      MYSQL_USER: rms
+      MYSQL_PASSWORD: rms
+      TZ: UTC
+    ports:
+      - "3306:3306"
+    volumes:
+      - rms_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  # JMS broker for local dev (Spring Boot 3 / jakarta.jms friendly)
+  artemis:
+    image: apache/activemq-artemis:2.35.0
+    container_name: rms-artemis
+    environment:
+      ARTEMIS_USER: admin
+      ARTEMIS_PASSWORD: admin
+    ports:
+      - "61616:61616"   # JMS
+      - "8161:8161"     # Web console
+    volumes:
+      - rms_artemis_data:/var/lib/artemis-instance
+
+  # Optional RocketMQ (enable with: docker compose --profile rocketmq up -d)
+  rocketmq-namesrv:
+    image: apache/rocketmq:5.3.0
+    container_name: rms-rocketmq-namesrv
+    profiles: ["rocketmq"]
+    command: ["sh", "mqnamesrv"]
+    ports:
+      - "9876:9876"
+    volumes:
+      - rms_rocketmq_namesrv_logs:/home/rocketmq/logs
+
+  rocketmq-broker:
+    image: apache/rocketmq:5.3.0
+    container_name: rms-rocketmq-broker
+    profiles: ["rocketmq"]
+    depends_on:
+      - rocketmq-namesrv
+    environment:
+      NAMESRV_ADDR: rocketmq-namesrv:9876
+    command:
+      - sh
+      - -c
+      - |
+        printf '%s\n' \
+          'brokerClusterName=DefaultCluster' \
+          'brokerName=broker-a' \
+          'brokerId=0' \
+          'deleteWhen=04' \
+          'fileReservedTime=48' \
+          'brokerRole=ASYNC_MASTER' \
+          'flushDiskType=ASYNC_FLUSH' \
+          'namesrvAddr=rocketmq-namesrv:9876' \
+          'autoCreateTopicEnable=true' \
+          > /home/rocketmq/broker.conf
+        mqbroker -c /home/rocketmq/broker.conf
+    ports:
+      - "10911:10911"
+      - "10909:10909"
+    volumes:
+      - rms_rocketmq_broker_store:/home/rocketmq/store
+      - rms_rocketmq_broker_logs:/home/rocketmq/logs
+
+volumes:
+  rms_mysql_data:
+  rms_artemis_data:
+  rms_rocketmq_namesrv_logs:
+  rms_rocketmq_broker_store:
+  rms_rocketmq_broker_logs:
+

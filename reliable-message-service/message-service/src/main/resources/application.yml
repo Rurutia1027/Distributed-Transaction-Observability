@@ -2,6 +2,23 @@ grpc:
   server:
     port: 9090
 
+spring:
+  application:
+    name: message-service
+
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/reliable_message?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: rms
+    password: rms
+
+  jpa:
+    hibernate:
+      ddl-auto: create
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+
 # MQ publisher switch:
 # - rocketmq: use RocketMQ publisher (placeholder implementation, wires config)
 # - jms: use JMS publisher (JmsTemplate)
