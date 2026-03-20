@@ -1,0 +1,24 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: upstream-order-service
+  datasource:
+    url: jdbc:mysql://127.0.0.1:3306/reliable_message?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=utf8
+    username: rms
+    password: rms
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+
+# RMS Two-Phase gRPC
+rms:
+  grpc:
+    host: 127.0.0.1
+    port: 9090
+  # Must match Bank ingress when RMS uses rms.downstream.publisher=http
+  payment:
+    destination: http://localhost:8082/api/bank/payment-commands

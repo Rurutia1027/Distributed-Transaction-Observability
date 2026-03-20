@@ -1,94 +1,78 @@
-# Cloud Native Reliable Message Service
+# Reliable Message System (RMS)
 
-This project is a refactored, standalone version of the original `roncoo-pay` messaging subsystem. It focuses purely on
-**reliable message logging and delivery** to support **eventual consistency in distributed systems**.
+Spring Boot service that exposes **Two-Phase Reliable Messaging** and a **demo Outbox Runtime** over **gRPC**, with JPA persistence and a scheduled relay that publishes to a pluggable downstream (`DownstreamPublisher`; default is log-only).
+
+## Contract & docs
+
+- **`docs/design-order-bank-two-phase.md`** — Order ↔ Bank 场景与两阶段投递语义（中文，含 L1/L2 回执说明）。
+- **`examples/order-bank-demo/`** — 上游 Order + 下游 Bank 两个独立工程（仅依赖 `message-service-api`）。
+- **`docs/README-two-phase-reliable.md`** — Two-Phase Reliable Messaging (English).
+- **`docs/README-outbox.md`** — Transactional Outbox pattern & gRPC contract notes (English).
+- **`docs/api-contract-two-phase.md`** — canonical API description (prepare / commit / rollback / status / consume result + outbox append / query / mark ready).
+- **`docs/schema-two-phase-vs-outbox.sql`** — reference DDL for `rms_message_tx`, `rms_message_result`, `rms_outbox_event`.
+- **`docs/observability-otel-tracing-logging.md`** — tracing/logging design notes.
 
 ## Modules
 
-- **message-service-api**: gRPC contract (proto) + generated Java stubs for server and client. Callers use this module to talk to the service via gRPC (publish, confirm, list).
-- **message-service**: Spring Boot application that implements the reliable message service:
-    - **gRPC server** (default port 9090): main API for producers (Publish, ConfirmSend, ListPage).
-    - **REST + Swagger** (port 8080): optional admin/query endpoints.
-    - Persistence to `transaction_message` (outbox), state machine (WAITING_CONFIRM → SENDING → SENT/DEAD).
-    - **Quartz** relay job to send outbox messages to **RocketMQ**.
+| Module | Role |
+|--------|------|
+| **message-service-api** | Protobuf + generated Java / gRPC stubs (`org.tus.tx.rms.twophase.v1`, `org.tus.tx.rms.outbox.v1`). |
+| **message-service** | Spring Boot app: JPA entities, application services, **gRPC on port 9090** (Netty), HTTP **8080** (actuator/health only unless you extend), `@Scheduled` relay. |
 
-## Purpose
+### gRPC services (port `9090`)
 
-The service implements a **reliable messaging** pattern to achieve **eventual consistency** across microservices:
+- **`ReliableMessageService`** — `PrepareMessage`, `CommitMessage`, `RollbackMessage`, `GetMessageStatus`, `ReportConsumeResult`.
+- **`OutboxRuntimeService`** — `AppendOutboxEvent`, `QueryOutboxEvent`, `MarkOutboxReady` (outbox rows live in RMS DB for this demo).
 
-- Messages are first **persisted to the database** (outbox) with status and send-attempt counters.
-- A background process **retries sending** messages until success or until they are marked as dead.
-- Downstream services consume messages from RocketMQ, ensuring that business actions are eventually applied even when remote systems are temporarily unavailable.
+### Runtime configuration
 
-## Docs
+See `message-service/src/main/resources/application.yml`:
 
-- `docs/observability-otel-tracing-logging.md`: End-to-end OpenTelemetry tracing + logging design (EN + 中文).
+- **`grpc.server.port`** — gRPC (default `9090`).
+- **`rms.relay.*`** — batch size, retry interval, scheduler fixed delay.
+- **MySQL** — aligned with `docker-compose.yml` (`reliable_message`, user `rms`/`rms`).
 
-### Observability (OpenTelemetry)
-
-Target observability stack (logging + tracing + metrics):
-
-- **Instrumentation**: OpenTelemetry SDK + auto-instrumentation where possible (Spring Boot, JDBC/Hibernate, gRPC).
-- **Traces**: Export OTLP to a collector; correlate message lifecycle spans (persist -> publish -> consume ->
-  ack/retry/dead).
-- **Metrics**: Export OTLP metrics; track send/consume rates, retry counts, dead-letter counts, DB latency, MQ latency.
-- **Logs**: Keep structured logs and include trace/span context for correlation (traceId/spanId).
-
-Recommended pipeline:
-
-- App -> **OpenTelemetry Collector** (OTLP) -> backend(s)
-    - Traces: Jaeger / Tempo
-    - Metrics: Prometheus (via collector) / OTLP-capable backend / Micrometer App side
-    - Logs: Loki
-
-### Deployment design
-
-The service runs as a standalone Spring Boot app with external dependencies:
-
-- **MySQL**: persistent store for `transaction_message` (outbox).
-- **RocketMQ**: message broker; relay job publishes to it.
-- **OpenTelemetry Collector** (optional): for tracing/logging; see `docs/observability-otel-tracing-logging.md`.
-
-#### Docker Compose (local dev)
-
-The repo includes `docker-compose.yml` for local dev infrastructure only (no app container; run the Spring Boot app on the host):
-
-| Service            | Image                 | Ports              | Notes |
-|--------------------|-----------------------|--------------------|--------|
-| `mysql`            | mysql:8.4             | 3306               | DB `reliable_message`, user `rms`/`rms` |
-| `rocketmq-namesrv` | apache/rocketmq:5.3.0 | 9876               | `platform: linux/amd64` for arm64 hosts (e.g. M1/M2) |
-| `rocketmq-broker`  | apache/rocketmq:5.3.0 | 10911, 10909       | Depends on namesrv; `autoCreateTopicEnable=true` |
-
-Run:
+## Build & run
 
 ```bash
 cd reliable-message-service
+mvn clean install -DskipTests
+mvn spring-boot:run -pl message-service
+```
+
+Local infra:
+
+```bash
 docker compose up -d
 ```
 
-Then start the app (e.g. from IDE or `mvn spring-boot:run -pl message-service`). The app connects to:
+Then start the app; ensure JDBC URL matches your MySQL host (compose maps `3306`).
 
-- MySQL at `localhost:3306`
-- RocketMQ at `127.0.0.1:9876` (see `application.yml`: `mq.rocketmq.name-server`)
+### Docker: Two-Phase middleware (MySQL + RMS in containers)
 
-App ports: **HTTP 8080** (REST/Swagger), **gRPC 9090**.
+Build and run **MySQL + Spring Boot RMS** (gRPC **9090**, HTTP **8080**):
 
-#### Kubernetes (production-like)
+```bash
+cd reliable-message-service
+docker compose -f docker-compose.twophase.yml up -d --build
+```
 
-Recommended layout:
+- **Schema**: `db/init/twophase/*.sql` is mounted into MySQL `docker-entrypoint-initdb.d` and runs **only on first startup** (empty volume). Two-phase tables: `rms_message_tx`, `rms_message_result`. Re-init: `docker compose ... down -v` (drops data).
+- **Hibernate**: `spring.jpa.hibernate.ddl-auto=none` (schema owned by SQL, not auto-DDL).
+- **Outbox**: this compose sets `RMS_OUTBOX_ENABLED=false` (no `rms_outbox_event` yet). Local all-in-one: set `rms.outbox.enabled=true` and create the outbox table (see `docs/schema-two-phase-vs-outbox.sql` Part B / future `db/init/outbox`).
 
-- **Stateful dependencies** (managed services or Helm):
-    - MySQL (or RDS/TiDB) + schema for `transaction_message`
-    - RocketMQ cluster (or managed MQ)
-- **Observability** (optional): OpenTelemetry Collector (Deployment or DaemonSet) + ConfigMap.
-- **Application**:
-    - `message-service` Deployment (single Spring Boot JAR).
-    - Service (ClusterIP) exposing **gRPC 9090** and **HTTP 8080** (REST/Swagger).
-    - Config via ConfigMap + Secret (DB URL, MQ name-server, etc.).
-    - HPA on CPU or custom metrics (optional).
+Requires Docker with Compose v2 (`depends_on: condition: service_healthy`). JDBC inside the app uses hostname `mysql` from this compose file.
 
-Operational considerations:
+**Run without Docker:** apply `db/init/twophase/01-schema.sql` to your MySQL `reliable_message` database, then start the app with the same `ddl-auto: none`.
 
-- **Idempotency**: consumers should be idempotent; message table status transitions must tolerate retries.
-- **Outbox pattern**: DB write + publish should be made reliable (transactional outbox + relay job).
-- **Backpressure**: protect DB and MQ with bounded retry policies and dead-letter handling.
+## Implementation notes
+
+- **Two-phase state machine**: `PREPARED` → `COMMITTED` / `ROLLED_BACK`; relay moves `COMMITTED` → `SENDING` → `SENT` or retries → `DEAD`.
+- **Outbox (demo)**: `Append` creates `PENDING` with `ready_to_send = false`; `MarkOutboxReady` sets ready and schedules relay; `PENDING`/`RETRYING` → `SENDING` → `SENT` / `RETRYING` / `DEAD`.
+- Replace **`LoggingDownstreamPublisher`** with a real RocketMQ/Kafka/Rabbit producer when integrating.
+
+**Demo HTTP publisher (L1 ACK):** set `rms.downstream.publisher=http` so relay POSTs to the URL in `destination` (e.g. Bank ingress). See `docs/design-order-bank-two-phase.md`.
+
+## Legacy README content
+
+Earlier revisions described REST + `transaction_message` + Quartz; that design is **not** what this tree implements. Use the gRPC contracts above.

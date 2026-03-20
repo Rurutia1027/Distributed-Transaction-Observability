@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>org.tus.tx.demo</groupId>
+    <artifactId>order-bank-demo</artifactId>
+    <version>0.1-SNAPSHOT</version>
+    <packaging>pom</packaging>
+    <name>order-bank-demo</name>
+    <description>Order (upstream) + Bank (downstream) — Two-Phase RMS demo; not part of RMS reactor build</description>
+
+    <modules>
+        <module>upstream-order-service</module>
+        <module>downstream-bank-service</module>
+    </modules>
+</project>

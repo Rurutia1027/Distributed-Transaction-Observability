@@ -1,40 +1,41 @@
-spring:
-  application:
-    name: message-service
-  datasource:
-    driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/reliable_message?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
-    username: rms
-    password: rms
-
-  jpa:
-    hibernate:
-      ddl-auto: create
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.MySQLDialect
-
 server:
   port: 8080
+
+spring:
+  application:
+    name: reliable-message-service
+  datasource:
+    url: jdbc:mysql://127.0.0.1:3306/reliable_message?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=utf8
+    username: rms
+    password: rms
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      # Schema from SQL (e.g. db/init/twophase); do not auto-create in prod-like runs
+      ddl-auto: none
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
 
 grpc:
   server:
     port: 9090
 
-springdoc:
-  api-docs:
-    path: /v3/api-docs
-  swagger-ui:
-    path: /swagger-ui.html
+rms:
+  # log (default) | http — http POSTs payload to full URL in destination (Order→Bank demo)
+  downstream:
+    publisher: log
+    http:
+      timeout-seconds: 15
+  # Outbox gRPC + relay (requires rms_outbox_event table). Set false for two-phase-only Docker stack.
+  outbox:
+    enabled: true
+  relay:
+    batch-size: 50
+    retry-interval-seconds: 30
+    fixed-delay-ms: 5000
 
-# MQ publisher switch:
-# - rocketmq: use RocketMQ publisher (placeholder implementation, wires config)
-mq:
-  publisher: rocketmq
-
-  rocketmq:
-    name-server: 127.0.0.1:9876
-    producer-group: reliable-message-producer
-    send-timeout-ms: 3000
-    retry-times: 2
-
+logging:
+  level:
+    org.tus.tx.rms: INFO

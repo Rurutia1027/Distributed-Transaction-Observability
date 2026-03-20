@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+package rms.outbox.v1;
+
+option java_multiple_files = true;
+option java_package = "org.tus.tx.rms.outbox.v1";
+option java_outer_classname = "OutboxRuntimeProto";
+
+// Outbox Runtime API (demo in RMS DB) — see docs/api-contract-two-phase.md
+service OutboxRuntimeService {
+  rpc AppendOutboxEvent(AppendOutboxEventRequest) returns (AppendOutboxEventResponse);
+  rpc QueryOutboxEvent(QueryOutboxEventRequest) returns (OutboxEventView);
+  rpc MarkOutboxReady(MarkOutboxReadyRequest) returns (SimpleAck);
+}
+
+message AppendOutboxEventRequest {
+  string event_id = 1;
+  string aggregate_type = 2;
+  string aggregate_id = 3;
+  string biz_key = 4;
+  string event_type = 5;
+  string destination = 6;
+  string payload = 7;
+  string headers_json = 8;
+  string trace_id = 9;
+}
+
+message AppendOutboxEventResponse {
+  bool accepted = 1;
+  string status = 2;
+}
+
+message MarkOutboxReadyRequest {
+  string event_id = 1;
+}
+
+message QueryOutboxEventRequest {
+  string event_id = 1;
+}
+
+message OutboxEventView {
+  string event_id = 1;
+  string biz_key = 2;
+  string event_type = 3;
+  string status = 4;
+  int32 send_times = 5;
+  int64 next_retry_at_epoch_ms = 6;
+  string last_error = 7;
+}
+
+message SimpleAck {
+  bool ok = 1;
+  string message = 2;
+}
