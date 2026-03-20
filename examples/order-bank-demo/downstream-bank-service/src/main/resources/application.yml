@@ -1,0 +1,31 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: downstream-bank-demo
+  datasource:
+    url: jdbc:mysql://127.0.0.1:3308/bank?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=utf8
+    username: bank
+    password: bank
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+
+rms:
+  grpc:
+    host: 127.0.0.1
+    port: 9090
+  report:
+    enabled: true
+
+bank:
+  mq:
+    enabled: true
+    name-server: 127.0.0.1:9876
+    topic: BANK_PAYMENT_COMMANDS
+    consumer-group: bank-payment-consumer
+  http-ingest:
+    enabled: false

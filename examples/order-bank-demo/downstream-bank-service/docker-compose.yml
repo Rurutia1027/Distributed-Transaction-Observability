@@ -1,0 +1,50 @@
+# Infra only — MySQL + RocketMQ. Run the Bank Spring Boot app on the host (IDE / mvn).
+#
+#   docker compose up -d
+#
+# From host: MySQL localhost:3308, namesrv localhost:9876
+
+name: downstream-bank-infra
+
+services:
+  rocketmq-namesrv:
+    image: apache/rocketmq:5.3.0
+    platform: linux/amd64
+    container_name: bank-rmq-namesrv
+    command: ["sh", "mqnamesrv"]
+    ports:
+      - "9876:9876"
+
+  rocketmq-broker:
+    image: apache/rocketmq:5.3.0
+    platform: linux/amd64
+    container_name: bank-rmq-broker
+    depends_on:
+      - rocketmq-namesrv
+    environment:
+      NAMESRV_ADDR: rocketmq-namesrv:9876
+    volumes:
+      - ./docker/broker.conf:/home/rocketmq/broker.conf:ro
+    # mqbroker is a shell script in this image — invoke via sh
+    command: ["sh", "-c", "sh mqbroker -c /home/rocketmq/broker.conf"]
+    ports:
+      - "10911:10911"
+      - "10909:10909"
+
+  mysql:
+    image: mysql:8.4
+    container_name: bank-demo-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: bank
+      MYSQL_USER: bank
+      MYSQL_PASSWORD: bank
+      TZ: UTC
+    ports:
+      - "3308:3306"
+    volumes:
+      - downstream_bank_mysql:/var/lib/mysql
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+
+volumes:
+  downstream_bank_mysql:
