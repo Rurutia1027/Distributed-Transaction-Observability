@@ -1,0 +1,41 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: upstream-order-demo
+  datasource:
+    url: jdbc:mysql://127.0.0.1:3307/order?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=utf8
+    username: order
+    password: order
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when_authorized
+      probes:
+        enabled: true
+
+# RMS Two-Phase client (message-service-api)
+rms:
+  grpc:
+    host: 127.0.0.1
+    port: 9090
+  client:
+    deadline-seconds: 30
+  payment:
+    destination: BANK_PAYMENT_COMMANDS
+    ttl-seconds: 3600
+
+logging:
+  level:
+    org.tus.demo.order: INFO

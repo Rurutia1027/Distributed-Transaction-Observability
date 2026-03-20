@@ -9,9 +9,10 @@
         <relativePath/>
     </parent>
     <groupId>org.tus.tx.demo</groupId>
-    <artifactId>upstream-order-service</artifactId>
+    <artifactId>upstream-order-demo</artifactId>
     <version>0.1-SNAPSHOT</version>
-    <name>upstream-order-service</name>
+    <name>upstream-order-demo</name>
+    <description>Standalone upstream Order demo — gRPC to RMS only</description>
     <properties>
         <java.version>17</java.version>
         <grpc.version>1.60.1</grpc.version>
@@ -25,6 +26,14 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -66,4 +75,3 @@
         </plugins>
     </build>
 </project>
-
