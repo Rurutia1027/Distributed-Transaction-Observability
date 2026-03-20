@@ -16,7 +16,7 @@ jobs:
       contents: read
     defaults:
       run:
-        working-directory: reliable-message-service
+        working-directory: two-phase-reliable
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -27,11 +27,6 @@ jobs:
           distribution: temurin
           java-version: "17"
           cache: maven
-
-      - name: Install persistence-common (external dependency)
-        run: |
-          git clone --depth 1 https://github.com/Rurutia1027/HQL-Native-Persistence.git /tmp/HQL-Native-Persistence
-          mvn -B -ntp -DskipTests -f /tmp/HQL-Native-Persistence/persistence-common/pom.xml install
 
       - name: Build (message-service-api proto codegen + message-service)
         run: mvn -B -ntp clean install -DskipTests
