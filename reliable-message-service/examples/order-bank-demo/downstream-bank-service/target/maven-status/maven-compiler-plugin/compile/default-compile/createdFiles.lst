@@ -1,6 +1,0 @@
-org/tus/demo/bank/domain/DemoPaymentRecordEntity.class
-org/tus/demo/bank/rms/RmsReportConfig.class
-org/tus/demo/bank/domain/DemoPaymentRecordRepository.class
-org/tus/demo/bank/BankDemoApplication.class
-org/tus/demo/bank/service/BankIngestService.class
-org/tus/demo/bank/web/BankPaymentController.class
