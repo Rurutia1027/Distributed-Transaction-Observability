@@ -1,3 +1,4 @@
+examples/order-bank-demo/upstream-order-service/.idea/
 examples/order-bank-demo/downstream-bank-service/.idea/
 examples/order-bank-demo/upstream-order-service/target/
 examples/order-bank-demo/.idea/
