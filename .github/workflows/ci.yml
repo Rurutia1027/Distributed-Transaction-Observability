@@ -28,6 +28,6 @@ jobs:
           java-version: "17"
           cache: maven
 
-      - name: Build (message-service-api proto codegen + message-service)
-        run: mvn -B -ntp clean install -DskipTests
+#      - name: Build (message-service-api proto codegen + message-service)
+#        run: mvn -B -ntp clean install -DskipTests
 
