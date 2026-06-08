@@ -1,0 +1,56 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: eda-design-service
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/eda_designs
+    username: ${DB_USER:eda}
+    password: ${DB_PASSWORD:eda_secret}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+# OpenTelemetry exporter (spring boot starter)
+otel:
+  exporter:
+    otlp:
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4317}
+      protocol: grpc
+  resource:
+    attributes:
+      service.name: ${OTEL_SERVICE_NAME:eda-design-service}
+      deployment.environment: ${DEPLOYMENT_ENV:demo}
+      service.namespace: eda
+
+# EDA custom sampling configuration
+eda:
+  tracing:
+    sampling:
+      # parentbased_traceidratio | traceidratio | always_on | always_off | rule_based
+      strategy: ${EDA_SAMPLING_STRATEGY:rule_based}
+      ratio: ${EDA_SAMPLING_RATIO:0.2}
+      always-sample-operations:
+        - commit
+        - simulate-error
+      always-sample-if-baggage:
+        force.trace: "true"
+        project.tier: premium
+
+demo:
+  force-error: ${DEMO_FORCE_ERROR:false}
