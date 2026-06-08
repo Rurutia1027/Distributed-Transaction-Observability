@@ -14,9 +14,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    defaults:
-      run:
-        working-directory: two-phase-reliable
     steps:
       - name: Checkout
         uses: actions/checkout@v4
