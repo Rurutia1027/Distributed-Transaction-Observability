@@ -1,7 +1,5 @@
 package com.eda.tracing.config;
 
-
-import io.opentelemetry.api.baggage.Baggage;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.trace.SpanKind;
@@ -18,22 +16,20 @@ import java.util.Map;
 /**
  * Custom head sampler for EDA monolith.
  *
- * <p>
- * Evaluation order for root spans:
+ * <p>Evaluation order for root spans:
  * <ol>
- *     <li>Baggage rules ({@code force.trace=true}, {@code project.tier=premium})</li>
- *     <li>Force-trace HTTP header (via {@code eda.force_trace} span attribute)</li>
- *     <li>Operation rules ({@code commit}, {@code simulate-error})</li>
- *     <li>Ratio fallback</li>
+ *   <li>Baggage rules ({@code force.trace=true}, {@code project.tier=premium})
+ *   <li>Force-trace HTTP header (via {@code eda.force_trace} span attribute)
+ *   <li>Operation rules ({@code commit}, {@code simulate-error})
+ *   <li>Ratio fallback
  * </ol>
  */
 public final class EdaRuleBasedSampler implements Sampler {
+
     private static final AttributeKey<String> EDA_OPERATION =
             AttributeKey.stringKey("eda.operation");
-
     private static final AttributeKey<String> HTTP_TARGET =
             AttributeKey.stringKey("http.target");
-
     private static final AttributeKey<Boolean> FORCE_TRACE_HEADER =
             AttributeKey.booleanKey("eda.force_trace");
 
@@ -41,32 +37,33 @@ public final class EdaRuleBasedSampler implements Sampler {
     private final SamplingProperties properties;
     private final String description;
 
-    public EdaRuleBasedSampler(Sampler ratioFallback,
-                               SamplingProperties properties,
-                               String description) {
-        this.ratioFallback = ratioFallback;
+    public EdaRuleBasedSampler(SamplingProperties properties) {
         this.properties = properties;
-        this.description = description;
+        this.ratioFallback = Sampler.traceIdRatioBased(clampRatio(properties.getRatio()));
+        this.description = "EdaRuleBasedSampler{ratio=" + properties.getRatio() + "}";
     }
 
     @Override
-    public SamplingResult shouldSample(Context parentContext,
-                                       String traceId,
-                                       String name,
-                                       SpanKind spanKind,
-                                       Attributes attributes,
-                                       List<LinkData> parentLinks) {
+    public SamplingResult shouldSample(
+            Context parentContext,
+            String traceId,
+            String name,
+            SpanKind spanKind,
+            Attributes attributes,
+            List<LinkData> parentLinks) {
+
         for (Map.Entry<String, String> rule :
                 properties.getAlwaysSampleIfBaggage().entrySet()) {
             String baggageValue =
-                    Baggage.fromContext(parentContext)
+                    io.opentelemetry.api.baggage.Baggage.fromContext(parentContext)
                             .getEntryValue(rule.getKey());
             if (rule.getValue().equalsIgnoreCase(baggageValue)) {
-                return sampled(Attributes.builder()
-                        .put("sampler.rule", "baggage")
-                        .put("sampler.matched_key", rule.getKey())
-                        .put("sampler.matched_value", rule.getValue())
-                        .build());
+                return sampled(
+                        Attributes.builder()
+                                .put("sampler.rule", "baggage")
+                                .put("sampler.matched_key", rule.getKey())
+                                .put("sampler.matched_value", rule.getValue())
+                                .build());
             }
         }
 
@@ -86,6 +83,7 @@ public final class EdaRuleBasedSampler implements Sampler {
                                 .build());
             }
         }
+
         SamplingResult fallback = ratioFallback.shouldSample(
                 parentContext, traceId, name, spanKind, attributes, parentLinks);
         if (fallback.getDecision() == SamplingDecision.RECORD_AND_SAMPLE) {
@@ -95,17 +93,11 @@ public final class EdaRuleBasedSampler implements Sampler {
                             .put("sampler.ratio", properties.getRatio())
                             .build());
         }
-
-        return dropped(Attributes.builder()
-                .put("sampler.rule", "ratio_dropped")
-                .put("sampler.ratio", properties.getRatio())
-                .build());
-    }
-
-
-    @Override
-    public String getDescription() {
-        return description;
+        return dropped(
+                Attributes.builder()
+                        .put("sampler.rule", "ratio_dropped")
+                        .put("sampler.ratio", properties.getRatio())
+                        .build());
     }
 
     private static SamplingResult sampled(Attributes attributes) {
@@ -116,17 +108,15 @@ public final class EdaRuleBasedSampler implements Sampler {
         return SamplingResult.create(SamplingDecision.DROP, attributes);
     }
 
-    private static boolean matchesOperation(String rule, String spanName,
-                                            String edaOperation, String httpTarget) {
+    private static boolean matchesOperation(
+            String rule, String spanName, String edaOperation, String httpTarget) {
         String r = rule.toLowerCase(Locale.ROOT);
         if (edaOperation != null && edaOperation.toLowerCase(Locale.ROOT).contains(r)) {
             return true;
         }
-
         if (spanName != null && spanName.toLowerCase(Locale.ROOT).contains(r)) {
             return true;
         }
-
         return httpTarget != null && httpTarget.toLowerCase(Locale.ROOT).contains(r);
     }
 
@@ -138,5 +128,10 @@ public final class EdaRuleBasedSampler implements Sampler {
             return 1.0;
         }
         return ratio;
+    }
+
+    @Override
+    public String getDescription() {
+        return description;
     }
 }

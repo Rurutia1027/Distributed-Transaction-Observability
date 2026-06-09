@@ -12,13 +12,14 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 @EnableConfigurationProperties(SamplingProperties.class)
 public class TracingSamplerConfig {
+
     @Bean
     public Sampler otelSampler(SamplingProperties properties) {
         return buildSampler(properties);
     }
 
     /**
-     * Factor used by tests and the {@link com.eda.tracing.web.SamplingController}
+     * Factory used by tests and the {@link com.eda.tracing.web.SamplingController}.
      */
     public static Sampler buildSampler(SamplingProperties properties) {
         String strategy = properties.getStrategy().toLowerCase().replace('-', '_');
