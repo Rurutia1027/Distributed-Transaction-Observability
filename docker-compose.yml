@@ -1,27 +1,31 @@
+# Mac (Apple Silicon / Intel): images pull native arch by default.
+# Start: docker compose up --build -d
+# Jaeger UI: http://localhost:16686  (service: eda-order-service)
+
 services:
   postgres:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: eda
       POSTGRES_PASSWORD: eda_secret
-      POSTGRES_DB: eda_designs
+      POSTGRES_DB: eda_orders
     ports:
       - "5432:5432"
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U eda -d eda_designs" ]
+      test: ["CMD-SHELL", "pg_isready -U eda -d eda_orders"]
       interval: 5s
       timeout: 5s
       retries: 5
 
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.96.0
-    command: [ "--config=/etc/otel-collector-config.yaml" ]
+    command: ["--config=/etc/otel-collector-config.yaml"]
     volumes:
-      - ./config/otel-collector-config.yaml:/etc/otel-collector-config.yaml
+      - ./config/otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
     ports:
-      - "4317:4317"   # OTLP gRPC
+      - "4317:4317"   # OTLP gRPC (App pushes here)
       - "4318:4318"   # OTLP HTTP
-      - "8889:8889"   # Prometheus exporter
+      - "8889:8889"   # Prometheus scrape (OTel metrics from collector)
     depends_on:
       jaeger:
         condition: service_started
@@ -32,31 +36,49 @@ services:
       COLLECTOR_OTLP_ENABLED: "true"
     ports:
       - "16686:16686" # UI
-      - "14250:14250" # gRPC (collector -> jaeger)
+      - "14250:14250"
 
   prometheus:
     image: prom/prometheus:v2.49.1
     volumes:
-      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
     ports:
       - "9090:9090"
     depends_on:
       - otel-collector
 
   eda-service:
-    build: ./eda-spring-boot
-    environment:
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_USER: eda
-      DB_PASSWORD: eda_secret
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
-      OTEL_SERVICE_NAME: eda-design-service
-      EDA_SAMPLING_STRATEGY: rule_based
-      EDA_SAMPLING_RATIO: "0.2"
-      DEMO_FORCE_ERROR: "false"
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Pin agent; bump when upgrading instrumentation
+        OTEL_AGENT_VERSION: "2.1.0"
     ports:
       - "8080:8080"
+    environment:
+      # App / DB
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: eda
+      DB_PASSWORD: eda_secret
+      SERVER_PORT: "8080"
+      DEMO_FORCE_ERROR: "false"
+      # Custom head sampling (Spring SDK — see note below)
+      EDA_SAMPLING_STRATEGY: rule_based
+      EDA_SAMPLING_RATIO: "0.2"
+      DEPLOYMENT_ENV: demo
+      # OpenTelemetry Java Agent (ENTRYPOINT -javaagent)
+      OTEL_SERVICE_NAME: eda-order-service
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_METRICS_EXPORTER: otlp
+      OTEL_LOGS_EXPORTER: none
+      OTEL_PROPAGATORS: tracecontext,baggage
+      OTEL_RESOURCE_ATTRIBUTES: service.namespace=eda,deployment.environment=demo
+      # pom.xml still has opentelemetry-spring-boot-starter (custom sampler + manual spans).
+      # Agent auto-instruments HTTP/JDBC too — remove starter from pom for agent-only mode.
     depends_on:
       postgres:
         condition: service_healthy
